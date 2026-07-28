@@ -1,0 +1,17 @@
+{
+  "name": "llm-base",
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "test:hooks": "bun test ./.claude/hooks",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write . && textlint --fix \"**/*.md\""
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.10",
+    "prettier": "^3.4.2",
+    "textlint": "^15.7.1",
+    "textlint-rule-preset-jtf-style": "^3.0.3",
+    "typescript": "^5.9.3"
+  }
+}
