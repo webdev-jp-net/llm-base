@@ -11,15 +11,26 @@
             "statusMessage": "🚧 必読ファイルの読了を確認中..."
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mkdir -p \"${CLAUDE_PROJECT_DIR:-.}/.claude/tmp\" && touch \"${CLAUDE_PROJECT_DIR:-.}/.claude/tmp/.bash-mark\"",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit",
+        "matcher": "Write|Edit|Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "f=$(jq -r '(.tool_input.file_path // .tool_response.filePath) // empty'); d=\"${CLAUDE_PROJECT_DIR:-.}/.claude/commands/doc-balance.md\"; case \"$f\" in *.md) [ -f \"$d\" ] && jq -Rs '{hookSpecificOutput:{hookEventName:\"PostToolUse\",additionalContext:(\"編集した .md にdoc-balanceの原則を適用して自己チェックすること（追記の分量・粒度・位置・構造・不要なナンバリングを周囲と揃っているか検問する）:\\n\\n\" + .)}}' \"$d\" || exit 0 ;; *) exit 0 ;; esac",
+            "command": "bun run \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/md-doc-balance.ts\"",
+            "timeout": 10,
             "statusMessage": "📖 ドキュメントのバランスチェク中…"
           },
           {
