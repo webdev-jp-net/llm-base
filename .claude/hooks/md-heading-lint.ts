@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Markdown Heading Lint — 見出しの構造的欠陥を警告 (PostToolUse → Edit|Write)
+ * Markdown Heading Lint — 見出しの構造的欠陥を警告 (PostToolUse → Edit|Write|Bash)
  *
  * 原則: 見出しはそのセクション全体を圧縮した 1 つの概念ラベルであること。副題・メタ・
  * 主張・番号を形式を問わず入れない。検出するのは形式の一部で、
@@ -15,8 +15,9 @@
  * 無効化: MD_HEADING_LINT_DISABLED=true
  */
 
-import { existsSync, readFileSync } from 'node:fs'
-import { basename, extname } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { basename } from 'node:path'
+import { targetFiles } from './lib/changed-md.ts'
 import { postContext, runHook } from './lib/hook-output.ts'
 import type { HookInput } from './lib/hook-types.ts'
 import { isInsideProject } from './lib/paths.ts'
@@ -98,25 +99,16 @@ if (import.meta.main) {
     if (process.env.MD_HEADING_LINT_DISABLED === 'true') process.exit(0)
 
     const input = await readStdinJson<HookInput>()
-    if (input.tool_name !== 'Edit' && input.tool_name !== 'Write') {
-      process.exit(0)
-    }
-
-    const filePath = input.tool_input.file_path as string | undefined
-    if (!filePath || !existsSync(filePath)) process.exit(0)
-
-    const ext = extname(filePath).toLowerCase()
-    if (!TARGET_EXTENSIONS.has(ext)) process.exit(0)
-
-    // プロジェクト内のファイルのみ対象（メモリ等リポジトリ外の .md には触れない）
     const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd()
-    if (!isInsideProject(projectDir, filePath)) process.exit(0)
 
-    const content = readFileSync(filePath, 'utf8')
-    const findings = lintHeadings(content)
-
-    if (findings.length > 0) {
-      postContext(formatReport(basename(filePath), findings))
+    const reports: string[] = []
+    for (const filePath of targetFiles(input, projectDir, TARGET_EXTENSIONS)) {
+      // プロジェクト内のファイルのみ対象（メモリ等リポジトリ外の .md には触れない）
+      if (!isInsideProject(projectDir, filePath)) continue
+      const findings = lintHeadings(readFileSync(filePath, 'utf8'))
+      if (findings.length > 0) reports.push(formatReport(basename(filePath), findings))
     }
+
+    if (reports.length > 0) postContext(reports.join('\n'))
   })
 }
