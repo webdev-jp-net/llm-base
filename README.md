@@ -44,9 +44,6 @@ pnpm install --frozen-lockfile
 - `_llm-docs/project.md` と `_llm-docs/operation/dictionary.md` を自分のプロジェクトの内容に書き換える
 - `_llm-memories/templates/` の3ファイルを `_llm-memories/` 直下へコピーする（記録が1つも無い状態では、read-gateが `_llm-memories/` 配下の作成だけを通す）
 
-新しいリポジトリとして立ち上げる場合は、`main` への初期コミットと `develop` の作成が先に要る。
-手順は `_llm-rules/github_integration.md` の「リポジトリの初期化」にある。
-
 ## 検査
 
 ```bash

@@ -21,12 +21,12 @@ package.jsonのバージョン更新 → リリースブランチ作成 → main
 git fetch origin
 # openなback-merge PR
 gh pr list --base develop --head main --state open --json number
-# openなリリースPR
-gh pr list --base main --state open --json number,headRefName \
+# openなリリースPR（--limit は jq の絞り込みより先に効くので、取得件数を明示する）
+gh pr list --base main --state open --limit 100 --json number,headRefName \
   --jq '[.[] | select(.headRefName | startswith("release/"))]'
-# 直近のマージ済みリリースPR
-gh pr list --base main --state merged --limit 20 --json number,headRefName,mergedAt \
-  --jq '[.[] | select(.headRefName | startswith("release/"))] | first'
+# 直近のマージ済みリリースPR（mergedAt の降順で並べ替えてから先頭を取る）
+gh pr list --base main --state merged --limit 100 --json number,headRefName,mergedAt \
+  --jq '[.[] | select(.headRefName | startswith("release/"))] | sort_by(.mergedAt) | last'
 # 最新タグ（v を落として比較に使う）
 git tag | sed 's/^v//' | sort -V | tail -1
 # main と develop の version
@@ -39,7 +39,7 @@ git show origin/develop:package.json | grep '"version"'
 - **openなback-merge PRがある** → マージを待ち、マージ後にStep 7の検証から再開する
 - **openなリリースPRがある** → ユーザーに状況を報告し、マージを待つか確認する
 - **マージ済みリリースPRがあり、そのバージョンのタグが未作成** → フェーズ2（リリース発行）。ここで得たPR番号とバージョンをStep 5以降へ引き継ぐ
-- **mainとdevelopのversionが不一致** → back-merge漏れ。Step 7から実行する
+- **mainのversionがdevelopより新しい** → back-merge漏れ。Step 7から実行する（developが新しいのはリリース前の通常状態なので該当しない）
 - **上記以外** → フェーズ1（リリース準備）。タグもリリースPRの履歴も無い場合は初回リリースとして扱う
 
 ---
@@ -129,10 +129,13 @@ gh pr view [引き継いだPR番号] --json number,headRefName,mergedAt,mergeCom
 - コミット一覧やPR番号の羅列にしない
 - 開発者向けの内部変更（リファクタリング等）は利用者に影響がなければ書かない
 
-原稿をユーザーに提示し、**承認後に**発行する。
+原稿をユーザーに提示し、**承認後に**発行する。承認済みノートはWriteツールで
+`.claude/tmp/release-notes.md`（`mkdir -p .claude/tmp` で置き場を用意）に書き、ファイルとして渡す。
+ノートにはバッククォートや `$()` が含まれるため、シェルの文字列に埋め込むと外側のシェルが展開してしまう。
 
 ```bash
-gh release create v[新バージョン] --target main --title "v[新バージョン]" --notes "[承認済みノート]"
+gh release create v[新バージョン] --target main --title "v[新バージョン]" \
+  --notes-file .claude/tmp/release-notes.md
 ```
 
 ### Step 7: developへのback-merge（必須・省略不可）
