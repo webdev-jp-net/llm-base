@@ -30,11 +30,19 @@ argument-hint: [document-path]
 
 ### Step 4: Issueの作成
 
-承認後、本文をWriteツールで `.claude/tmp/issue-body.md` に書き、ファイルとして渡す。
-本文にはバッククォートや `$()` が含まれるため、シェルの文字列に埋め込むと外側のシェルが展開してしまう。
+承認後、`_llm-rules/github_integration.md`の「改行を含むMarkdown記述時の実行方式」に従って実行する。
+
+**printf + パイプ方式（優先）**
 
 ```bash
-gh issue create --title "タイトル" --body-file .claude/tmp/issue-body.md
+printf '%s' $'本文内容\n' | gh issue create --title "タイトル" --body-file -
+```
+
+**一時ファイル方式（バックアップ）**
+
+```bash
+printf '%s' $'本文内容\n' > /tmp/issue_body.md
+gh issue create --title "タイトル" --body-file /tmp/issue_body.md
 ```
 
 ### Step 5: 作成確認
