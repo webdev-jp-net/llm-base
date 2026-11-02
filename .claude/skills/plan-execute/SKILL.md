@@ -27,29 +27,40 @@ gh issue view [Issue番号]
 
 ### Step 3: ブランチ判定と対応
 
-- **現在のブランチ名に `#[Issue番号]` が含まれる場合**: そのまま継続使用可能。Step 5へスキップ
+- **現在のブランチ名が `#[Issue番号]` で終わる場合**: そのまま継続使用可能。Step 5へスキップ
 - **上記以外の場合（`develop`・`main`・別Issueのブランチ）**: 対象Issue番号に対応する既存ブランチを探す
 
+末尾で照合する。`#3` は `#30` や `#35` にも部分一致するため、`grep "#[Issue番号]"` では別のIssueの
+ブランチを拾う。ローカルとリモートは分けて扱う。リモートの参照名をそのままcheckoutするとdetached HEADになる。
+
 ```bash
-git branch --all | grep "#[Issue番号]"
+# ローカル
+git branch --format='%(refname:short)' | grep -E "#[Issue番号]$"
+# リモート
+git branch --remotes --format='%(refname:short)' | grep -E "#[Issue番号]$"
 ```
 
-- **既存ブランチが見つかった場合**: そのブランチへチェックアウトしてStep 5へスキップ
+- **ローカルに見つかった場合**: そのブランチへチェックアウトしてStep 5へスキップ
 
 ```bash
-git checkout [見つかったブランチ名]
+git switch [見つかったローカルブランチ名]
+```
+
+- **リモートにだけ見つかった場合**: 追跡ブランチを作ってチェックアウトし、Step 5へスキップ
+
+```bash
+git switch --track [origin/見つかったブランチ名]
 ```
 
 - **見つからない場合**: Step 4へ進み新規ブランチを作成する
 
 ### Step 4: 新規ブランチ作成
 
-下記「ブランチ命名規則」に従いブランチ名を決定し、ユーザーに提案して承認を得てから作成する。
-`gh issue develop` を使うのは、ブランチ名にIssue番号を含めるだけではIssueのDevelopmentセクションへ
-登録されないため（`_llm-rules/github_integration.md`）。このコマンドはリモートにもブランチを作る。
+下記「ブランチ命名規則」に従いブランチ名を決定し、ユーザーに提案して承認を得てからローカルブランチを作成する。
+リモートへのpushはここでは行わない（PR作成時の責務）。
 
 ```bash
-gh issue develop [Issue番号] --name "feature/[英語概要]#[Issue番号]" --base develop --checkout
+git checkout -b feature/[英語概要]#[Issue番号]
 ```
 
 ### Step 5: 作業開始前の最終確認

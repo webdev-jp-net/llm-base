@@ -7,7 +7,7 @@ description: Implementation principle
 ## 実装前の調査と準備
 
 設計・実装・レビューは
-YAGNI、DRYの原則にしたがってください。
+SOLID、KISS、YAGNI、DRYの原則にしたがってください。
 
 ### 既存コードの変更原則
 

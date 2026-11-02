@@ -4,15 +4,15 @@ Claude Codeのエージェント運用ルールと制御機構の基盤。技術
 
 ## 構成
 
-| 置き場                    | 役割                                                                                         |
-| ------------------------- | -------------------------------------------------------------------------------------------- |
-| `CLAUDE.md` / `AGENTS.md` | エージェントのエントリーポイント                                                             |
-| `_llm-rules/`             | 運用ルール（コアルール・GitHub連携・実装原則・自己改善）                                     |
-| `_llm-docs/`              | プロジェクトの仕様書。`project.md` と `operation/dictionary.md` はセッション開始時の必読対象 |
-| `_llm-memories/`          | 実行記録。実体は追跡せず、`templates/` だけをバージョン管理する                              |
-| `.claude/hooks/`          | 必読ファイルの読了判定（read-gate）とMarkdownの整形・見出し検査                              |
-| `.claude/skills/`         | Issue起票・レビュー・リリース・ブランチ後始末などの手順書                                    |
-| `.claude/commands/`       | スラッシュコマンド                                                                           |
+| 置き場              | 役割                                                                                         |
+| ------------------- | -------------------------------------------------------------------------------------------- |
+| `AGENTS.md`         | エージェントのエントリーポイント                                                             |
+| `_llm-rules/`       | 運用ルール（コアルール・GitHub連携・実装原則・自己改善）                                     |
+| `_llm-docs/`        | プロジェクトの仕様書。`project.md` と `operation/dictionary.md` はセッション開始時の必読対象 |
+| `_llm-memories/`    | 実行記録。実体は追跡せず、`templates/` だけをバージョン管理する                              |
+| `.claude/hooks/`    | 必読ファイルの読了判定（read-gate）とMarkdownの整形・見出し検査                              |
+| `.claude/skills/`   | Issue起票・レビュー・リリース・ブランチ後始末などの手順書                                    |
+| `.claude/commands/` | スラッシュコマンド                                                                           |
 
 ## 前提
 
@@ -43,9 +43,6 @@ pnpm install --frozen-lockfile
 
 - `_llm-docs/project.md` と `_llm-docs/operation/dictionary.md` を自分のプロジェクトの内容に書き換える
 - `_llm-memories/templates/` の3ファイルを `_llm-memories/` 直下へコピーする（記録が1つも無い状態では、read-gateが `_llm-memories/` 配下の作成だけを通す）
-
-新しいリポジトリとして立ち上げる場合は、`main` への初期コミットと `develop` の作成が先に要る。
-手順は `_llm-rules/github_integration.md` の「リポジトリの初期化」にある。
 
 ## 検査
 

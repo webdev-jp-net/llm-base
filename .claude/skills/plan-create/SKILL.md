@@ -79,18 +79,21 @@ Taskツール（subagent_type=Explore）で関連仕様書を探索する。
   - 明示された技術スタックの公式リファレンス
 - `## 仕様書`にはStep 3で確認した`_llm-docs/`配下の関連仕様書パスのみ記載する
 
-### Step 5: Codex CLIレビュー（最大10回）
+### Step 5: Codex CLIレビュー（最大3回）
 
 Skillツールで`doc-review`を実行し、作成した原稿をレビューする。
 引数として原稿の内容または保存パスを渡す。
 
 > **注意**: Codex CLIがインストールされていない場合はこのステップをスキップし、Step 6に進む。
 
-指摘事項があれば原稿を修正し、最大10回まで繰り返す。
+指摘事項があれば原稿を修正し、最大3回まで繰り返す（`_llm-rules/self_improvement.md`の検証ループ）。
+3回で合格しない場合は、最良版と問題点を添えてユーザーにエスカレーションする。
 
 ### Step 6: ファイルへの保存
 
-ExitPlanModeツールで計画の承認を得た後、`.claude/tmp/issue/[slug]-[timestamp].md` に保存する。
+ExitPlanModeツールで計画の承認を得た後、`mkdir -p .claude/tmp/issue` で置き場を用意し、
+`.claude/tmp/issue/[slug]-[timestamp].md` に保存する。`.claude/tmp` は追跡対象外なので、
+cloneした直後には存在しない。
 
 - `[slug]`: 内容を表す英語のケバブケース（例: `add-search-feature`, `fix-login-flow`）
 - `[timestamp]`: `YYYYMMDDHHmmss` 形式

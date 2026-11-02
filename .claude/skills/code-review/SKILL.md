@@ -16,8 +16,11 @@ Codex CLIを使用してコードをレビューし、結果を返す。
 リクエストは引数ではなく標準入力から渡す。レビュー対象にはバッククォートや `$()` が含まれるため、
 シェルの二重引用符に埋め込むと外側のシェルが展開してしまう。
 
+`--full-auto` は付けない。`--sandbox read-only` を上書きして `workspace-write` になり、
+レビューのつもりでリポジトリを書き換えられる状態になる。
+
 ```bash
-codex exec --full-auto --sandbox read-only --cd <project_directory> < <request_file>
+codex exec --sandbox read-only --cd <project_directory> < <request_file>
 ```
 
 ## プロンプトのルール
@@ -37,9 +40,10 @@ codex exec --full-auto --sandbox read-only --cd <project_directory> < <request_f
 
 ### Step 2: リクエストをファイルに書く
 
-Writeツールで `.claude/tmp/review-request.md` に次の内容を書く。対象の中身もここに含める。
+`mkdir -p .claude/tmp` で置き場を用意してから、Writeツールで `.claude/tmp/review-request.md` に
+次の内容を書く。対象の中身もここに含める。`.claude/tmp` は追跡対象外なので、cloneした直後には存在しない。
 
-```markdown
+```text
 まず _llm-rules/implementation_principles.md を読み込み、そこに定義された実装原則を理解してください。
 その原則を基準として、以下を対象にレビューを行ってください。
 
@@ -51,10 +55,12 @@ Writeツールで `.claude/tmp/review-request.md` に次の内容を書く。対
 ### Step 3: Codex CLIでレビュー実行
 
 出力は全文をファイルへ保存する。`head` / `tail` で切ると読むべき指摘が消えたことに気づけない。
+保存先はリポジトリの外にする。中に置くとCodexが実行中の結果ファイルを読み、読んだ内容が同じファイルへ
+再出力されて肥大する。
 
 ```bash
-codex exec --full-auto --sandbox read-only --cd <project_directory> \
-  < .claude/tmp/review-request.md > .claude/tmp/review-result.txt 2>&1
+codex exec --sandbox read-only --cd <project_directory> \
+  < .claude/tmp/review-request.md > "${TMPDIR:-/tmp}/code-review-result.txt" 2>&1
 ```
 
 ### Step 4: 結果を返す
