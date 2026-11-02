@@ -74,7 +74,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "l=$(bun run \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/read-gate.ts\" --list) && [ -n \"$l\" ] || l='- 必読一覧を取得できなかった。.claude/hooks/read-gate.ts が動くか確認するまで着手しない。'; printf '%s\\n' 'CLAUDE.mdは読むだけでなく従うこと。指示されたルールは一部を選ぶのではなく全部読み、全部従う。省略・要約・取捨選択をしない。stateがin_progressならnext_actionからの再開を提案すること。完了時はstate/episodesを更新すること。' '' '着手前に次をすべて読む。' \"$l\" | jq -Rs '{hookSpecificOutput:{hookEventName:\"SessionStart\",additionalContext:.}}'",
+            "command": "l=$(bun run \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/read-gate.ts\" --list) && [ -n \"$l\" ] || l='- 必読一覧を取得できなかった。.claude/hooks/read-gate.ts が動くか確認するまで着手しない。'; printf '%s\\n' 'AGENTS.mdは読むだけでなく従うこと。指示されたルールは一部を選ぶのではなく全部読み、全部従う。省略・要約・取捨選択をしない。stateがin_progressならnext_actionからの再開を提案すること。完了時はstate/episodesを更新すること。' '' '着手前に次をすべて読む。' \"$l\" | jq -Rs '{hookSpecificOutput:{hookEventName:\"SessionStart\",additionalContext:.}}'",
             "statusMessage": "ルールの読了を促し中"
           }
         ]
