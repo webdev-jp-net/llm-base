@@ -74,8 +74,25 @@
         "hooks": [
           {
             "type": "command",
-            "command": "l=$(bun run \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/read-gate.ts\" --list) && [ -n \"$l\" ] || l='- 必読一覧を取得できなかった。.claude/hooks/read-gate.ts が動くか確認するまで着手しない。'; printf '%s\\n' 'CLAUDE.mdは読むだけでなく従うこと。指示されたルールは一部を選ぶのではなく全部読み、全部従う。省略・要約・取捨選択をしない。stateがin_progressならnext_actionからの再開を提案すること。完了時はstate/episodesを更新すること。' '' '着手前に次をすべて読む。' \"$l\" | jq -Rs '{hookSpecificOutput:{hookEventName:\"SessionStart\",additionalContext:.}}'",
+            "command": "l=$(bun run \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/read-gate.ts\" --list) && [ -n \"$l\" ] || l='- 必読一覧を取得できなかった。.claude/hooks/read-gate.ts が動くか確認するまで着手しない。'; printf '%s\\n' 'AGENTS.mdは読むだけでなく従うこと。指示されたルールは一部を選ぶのではなく全部読み、全部従う。省略・要約・取捨選択をしない。stateがin_progressならnext_actionからの再開を提案すること。完了時はstate/episodesを更新すること。' '' '着手前に次をすべて読む。' \"$l\" | jq -Rs '{hookSpecificOutput:{hookEventName:\"SessionStart\",additionalContext:.}}'",
             "statusMessage": "ルールの読了を促し中"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "agent",
+            "prompt": "次のフック入力の last_assistant_message は、Claudeがユーザーへ書き終えた返答である: $ARGUMENTS\n\nまず Read ツールで、フック入力の cwd の下にある次の2つのファイルだけを読む。\n- .claude/hooks/self-check-criteria.md: Claudeが返答前に従うべき基準（基準の「発話」はこの返答を指す）\n- .claude/tmp/self-check-context.md: この返答が答えている「ユーザーの最新の発言」と、その「直前のアシスタントの返答」\n\nそのやり取りを踏まえ、返答をこの基準で判定する。\n\n基準の後者に当たる部分が無ければ {\"ok\": true}、あれば {\"ok\": false, \"reason\": \"<該当部分の引用と、後者に当たる理由>\"} だけを返す。",
+            "timeout": 60,
+            "model": "claude-haiku-5-5"
+          },
+          {
+            "type": "command",
+            "command": "bun run \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/self-check-context.ts\"",
+            "timeout": 10
           }
         ]
       }
