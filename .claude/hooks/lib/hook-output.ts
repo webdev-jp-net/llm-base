@@ -62,6 +62,11 @@ export function postContext(context: string): void {
   })
 }
 
+/** PostToolUse: 差し戻す（ツールは実行済み。reason に応えるまで先へ進ませない） */
+export function blockPost(reason: string): void {
+  process.stdout.write(JSON.stringify({ decision: 'block', reason }))
+}
+
 /** UserPromptSubmit: 追加コンテキストを注入 */
 export function userPromptContext(context: string): void {
   emitOutput({
