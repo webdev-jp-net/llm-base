@@ -11,7 +11,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { targetFileList } from './lib/changed-md.ts'
+import { targetFiles } from './lib/changed-md.ts'
 import { blockPost, runHook } from './lib/hook-output.ts'
 import type { HookInput } from './lib/hook-types.ts'
 import { isInsideProject } from './lib/paths.ts'
@@ -29,7 +29,7 @@ if (import.meta.main) {
     if (!existsSync(criteria)) process.exit(0)
 
     // プロジェクト内のファイルのみ対象（メモリ等リポジトリ外の .md には触れない）
-    const hit = targetFileList(input, projectDir, TARGET_EXTENSION_LIST).some(filePath =>
+    const hit = targetFiles(input, projectDir, TARGET_EXTENSION_LIST).some(filePath =>
       isInsideProject(projectDir, filePath)
     )
     if (!hit) process.exit(0)
