@@ -17,7 +17,7 @@
 
 import { readFileSync } from 'node:fs'
 import { basename } from 'node:path'
-import { targetFileList } from './lib/changed-md.ts'
+import { targetFiles } from './lib/changed-md.ts'
 import { blockPost, runHook } from './lib/hook-output.ts'
 import type { HookInput } from './lib/hook-types.ts'
 import { isInsideProject } from './lib/paths.ts'
@@ -104,7 +104,7 @@ if (import.meta.main) {
     const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd()
 
     const reportList: string[] = []
-    for (const filePath of targetFileList(input, projectDir, TARGET_EXTENSION_LIST)) {
+    for (const filePath of targetFiles(input, projectDir, TARGET_EXTENSION_LIST)) {
       // プロジェクト内のファイルのみ対象（メモリ等リポジトリ外の .md には触れない）
       if (!isInsideProject(projectDir, filePath)) continue
       const findingList = lintHeadingList(readFileSync(filePath, 'utf8'))

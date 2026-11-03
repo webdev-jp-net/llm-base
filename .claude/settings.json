@@ -53,7 +53,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -Rs '{hookSpecificOutput: {hookEventName: \"UserPromptSubmit\", additionalContext: .}}' \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/self-check-criteria.txt\"",
+            "command": "jq -Rs '{hookSpecificOutput: {hookEventName: \"UserPromptSubmit\", additionalContext: .}}' \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/self-check-criteria.md\"",
             "timeout": 10
           }
         ]
@@ -62,7 +62,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -Rs '{hookSpecificOutput: {hookEventName: \"UserPromptSubmit\", additionalContext: .}}' \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/no-discretion.txt\"",
+            "command": "jq -Rs '{hookSpecificOutput: {hookEventName: \"UserPromptSubmit\", additionalContext: .}}' \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/no-discretion.md\"",
             "timeout": 10
           }
         ]
