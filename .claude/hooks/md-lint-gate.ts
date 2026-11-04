@@ -10,8 +10,10 @@
  *   doc-balance の直近の判定が不合格または未判定のファイルも残す。
  *   残っていれば、そのファイルの Read と Edit / Write 以外を拒否する。
  *   git commit を含む Bash の前には、コミットに入りうる .md も加えて検査する。
- * Bash の直前と直後には、審査の記録が書き換えられていないかを比べる（lib/record-guard.ts）。
- *   失敗した Bash では直後のフックが動かないので、控えが残っていれば次の操作の直前に比べる。
+ * Bash の直前には HEAD と参照の先を控え、直後に、その Bash で作られたコミットに
+ *   doc-balance に合格した中身と違う .md が入っていないかを確かめる（控えは lib/record-guard.ts）。
+ *   失敗した Bash では直後のフックが動かないので、控えが残っていれば次の操作の直前に確かめ、
+ *   その Bash が書き換えた .md を Bash による編集として記録する。
  * agent 型フックの判定役自身の呼び出し（agent_id が hook-agent- で始まる）は対象にしない。
  * 検査を次の操作の直前に行うのは、編集直後に並行して動く md-jtf-fix の整形が終わってから
  * 検査するため。
@@ -24,7 +26,6 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, extname, join, relative, resolve } from 'node:path'
 import {
-  BALANCE,
   type EditEvent,
   balanceStatus,
   lastHumanLine,
@@ -45,16 +46,12 @@ import type { HookInput } from './lib/hook-types.ts'
 import { isInsideProject } from './lib/paths.ts'
 import { readStdinJson } from './lib/read-stdin.ts'
 import {
-  checkFinishedSnapshots,
-  checkSnapshot,
-  enqueue,
   fileHash,
-  isBashInFlight,
+  finishedSnapshots,
   markTampered,
-  readQueue,
-  removeQueue,
   readTamper,
-  takeSnapshot,
+  removeSnapshot,
+  saveSnapshot,
   TAMPER,
   withLock,
 } from './lib/record-guard.ts'
@@ -129,9 +126,6 @@ export function isAllowedWhilePending(
 /** 判定役が読む doc-balance の基準（プロジェクトルート相対） */
 const CRITERIA = '.claude/commands/doc-balance.md'
 
-/** Bash で書き換えを検知する対象（プロジェクトルート相対） */
-const GUARDED_LIST = [PENDING, BALANCE, CRITERIA]
-
 /**
  * 判定役は基準をフック入力の cwd の下から読む。cwd がプロジェクトルート以外で、
  * そこに別の基準が置かれていれば、判定役が違う基準で判定するので書き換えとみなす
@@ -151,46 +145,17 @@ interface Edited {
   transcriptPath: string
 }
 
-/** 実行中の Bash がある間に、記録の代わりに待ち行列へ置く1件 */
-interface QueuedRecord {
-  files: string[]
-  edit: Edited
-}
-
-/** 編集された .md を lint 待ちと doc-balance の判定待ちに書き込む */
-function writeRecord(projectDir: string, fileList: string[], edit: Edited): void {
-  writePending(projectDir, [...readPending(projectDir), ...fileList])
-  writeEvents(projectDir, [...readEvents(projectDir), ...fileList.map(file => ({ file, ...edit }))])
-}
-
-/** 編集された .md を記録する。実行中の Bash があれば、記録には書かず待ち行列に置く */
+/** 編集された .md を lint 待ちと doc-balance の判定待ちに記録する */
 function recordFiles(projectDir: string, fileList: string[], edit: Edited): void {
   const editedList = fileList
     .filter(filePath => isInsideProject(projectDir, filePath))
     .map(filePath => resolve(filePath))
   if (editedList.length === 0) return
-  if (isBashInFlight(projectDir))
-    enqueue(projectDir, edit.toolUseId, { files: editedList, edit } satisfies QueuedRecord)
-  else writeRecord(projectDir, editedList, edit)
-}
-
-/** 待ち行列に置いた記録 */
-function queuedRecords(projectDir: string): QueuedRecord[] {
-  return readQueue(projectDir).map(q => q.payload as QueuedRecord)
-}
-
-/** 実行中の Bash が無くなっていれば、待ち行列を記録に反映する */
-function applyQueue(projectDir: string): void {
-  if (isBashInFlight(projectDir)) return
-  const queue = readQueue(projectDir)
-  for (const { payload } of queue) {
-    const queued = payload as QueuedRecord
-    writeRecord(projectDir, queued.files, queued.edit)
-  }
-  removeQueue(
-    projectDir,
-    queue.map(q => q.name)
-  )
+  writePending(projectDir, [...readPending(projectDir), ...editedList])
+  writeEvents(projectDir, [
+    ...readEvents(projectDir),
+    ...editedList.map(file => ({ file, ...edit })),
+  ])
 }
 
 /** PostToolUse: 編集された .md を記録する */
@@ -311,12 +276,12 @@ function checkNewCommits(projectDir: string, toolUseId: string): string[] {
 }
 
 /**
- * PreToolUse: 直後のフックが動かなかった（失敗した）Bash を比べ、
+ * PreToolUse: 直後のフックが動かなかった（失敗した）Bash について、作られたコミットを確かめ、
  * その Bash が書き換えた .md を、Bash による編集として記録する
  */
 function settleFinishedBash(projectDir: string): void {
-  const { problemList, finishedList } = checkFinishedSnapshots(projectDir)
-  for (const bash of finishedList) problemList.push(...checkNewCommits(projectDir, bash.toolUseId))
+  const finishedList = finishedSnapshots(projectDir)
+  const problemList = finishedList.flatMap(bash => checkNewCommits(projectDir, bash.toolUseId))
   if (problemList.length > 0) markTampered(projectDir, problemList)
   for (const bash of finishedList) {
     const fileList = withoutIgnored(
@@ -331,16 +296,14 @@ function settleFinishedBash(projectDir: string): void {
   }
 }
 
-/** Bash の直後: 審査の記録が書き換えられていれば、目印を残して差し戻す */
+/** Bash の直後: 審査を通っていない中身がコミットされていれば、目印を残して差し戻す */
 function detect(input: HookInput, projectDir: string): void {
-  const problemList = [
-    ...checkSnapshot(projectDir, input.tool_use_id ?? ''),
-    ...checkNewCommits(projectDir, input.tool_use_id ?? ''),
-  ]
+  removeSnapshot(projectDir, input.tool_use_id ?? '')
+  const problemList = checkNewCommits(projectDir, input.tool_use_id ?? '')
   if (problemList.length === 0) return
   markTampered(projectDir, problemList)
   const message = [
-    '[md-lint-gate] Bash で審査の記録の書き換え、または審査を通っていない中身のコミットがあった。すべての操作を止める。',
+    '[md-lint-gate] Bash で、審査を通っていない中身がコミットされた。すべての操作を止める。',
     ...problemList,
     `ユーザーが確かめて ${TAMPER} を消すまで、作業を再開しない。`,
   ].join('\n')
@@ -385,8 +348,7 @@ export function committableMdList(projectDir: string): string[] {
 function balanceProblems(
   input: HookInput,
   projectDir: string,
-  extraList: string[],
-  inFlight: boolean
+  extraList: string[]
 ): { failingList: string[]; problemList: string[]; stopAll: boolean } {
   // 不合格の回数は、ユーザーの最後の発言より後の判定だけを数える
   const streakStart = {
@@ -394,10 +356,7 @@ function balanceProblems(
     line: lastHumanLine(input.transcript_path),
   }
   let stopAll = false
-  const recordedList: EditEvent[] = [
-    ...readEvents(projectDir),
-    ...queuedRecords(projectDir).flatMap(q => q.files.map(file => ({ file, ...q.edit }))),
-  ]
+  const recordedList: EditEvent[] = readEvents(projectDir)
   // 追跡済みで HEAD と同じ中身のファイルは、すでにコミットされた内容なので記録から外す
   // （コミット済みの合格、git pull・checkout で入れ替わったファイル）
   const committed = unchangedFromHead(projectDir, [...new Set(recordedList.map(e => e.file))])
@@ -438,12 +397,10 @@ function balanceProblems(
       )
     }
   }
-  // 実行中の Bash がある間は、記録を書き換えない（待ち行列はまだ記録に入れない）
-  if (!inFlight)
-    writeEvents(
-      projectDir,
-      pruneEvents(eventList, passedList).filter(e => existsSync(e.file))
-    )
+  writeEvents(
+    projectDir,
+    pruneEvents(eventList, passedList).filter(e => existsSync(e.file))
+  )
   return { failingList, problemList, stopAll }
 }
 
@@ -452,7 +409,7 @@ function gate(input: HookInput, projectDir: string): boolean {
   const tamper = readTamper(projectDir)
   if (tamper !== null) {
     const message = [
-      '[md-lint-gate] Bash で審査の記録が書き換えられたため、すべての操作を止めている。',
+      '[md-lint-gate] 審査を通っていない中身のコミット、または基準の置き換えを検知したため、すべての操作を止めている。',
       tamper,
       `ユーザーが確かめて ${TAMPER} を消すまで、作業を再開しない。`,
     ].join('\n')
@@ -460,14 +417,9 @@ function gate(input: HookInput, projectDir: string): boolean {
     return true
   }
 
-  const inFlight = isBashInFlight(projectDir)
   const command = input.tool_name === 'Bash' ? String(input.tool_input?.command ?? '') : ''
   const committableList = isCommitCommand(command) ? committableMdList(projectDir) : []
-  const pendingList = [
-    ...readPending(projectDir),
-    ...queuedRecords(projectDir).flatMap(q => q.files),
-    ...committableList,
-  ]
+  const pendingList = [...readPending(projectDir), ...committableList]
 
   const problemList: string[] = []
   const lintFailingList: string[] = []
@@ -478,9 +430,9 @@ function gate(input: HookInput, projectDir: string): boolean {
     lintFailingList.push(filePath)
     problemList.push(...fileProblemList)
   }
-  if (!inFlight) writePending(projectDir, lintFailingList)
+  writePending(projectDir, lintFailingList)
 
-  const balance = balanceProblems(input, projectDir, committableList, inFlight)
+  const balance = balanceProblems(input, projectDir, committableList)
   problemList.push(...balance.problemList)
   const failingList = [...new Set([...lintFailingList, ...balance.failingList])]
   if (failingList.length === 0) return false
@@ -523,48 +475,27 @@ if (import.meta.main) {
       if (event === 'PreToolUse') {
         // 失敗した Bash では直後のフックが動かないので、残った控えをここで片付ける
         settleFinishedBash(projectDir)
-        applyQueue(projectDir)
         checkCriteriaLocation(input, projectDir)
         const blocked = gate(input, projectDir)
         if (isBash && !blocked) {
-          takeSnapshot(
-            projectDir,
-            input.transcript_path ?? '',
-            GUARDED_LIST,
-            input.tool_use_id ?? ''
-          )
+          saveSnapshot(projectDir, input.transcript_path ?? '', input.tool_use_id ?? '')
           saveHead(projectDir, input.tool_use_id ?? '')
         }
         return
       }
       if (isBash) detect(input, projectDir)
       record(input, projectDir)
-      applyQueue(projectDir)
     })
   }
   main().catch(e => {
     // 記録・判定ができないときは止める（read-gate と同じ fail-closed）
     const message = `[md-lint-gate] lint 待ちの記録・判定に失敗した: ${e instanceof Error ? e.message : e}`
     if (event !== 'PreToolUse') {
-      // 直後の記録に失敗しても編集を失わないよう、ロックを取らずに待ち行列へ置く
-      // （待ち行列は次の操作の直前に検査され、記録に反映される）
+      // 直後の記録に失敗しても編集を失わないよう、ロックを取らずに記録を試みる
       try {
-        if (received) {
-          const fileList = targetFiles(received, projectDir, TARGET_EXTENSION_LIST)
-            .filter(filePath => isInsideProject(projectDir, filePath))
-            .map(filePath => resolve(filePath))
-          if (fileList.length > 0)
-            enqueue(projectDir, received.tool_use_id ?? 'unknown', {
-              files: fileList,
-              edit: {
-                tool: received.tool_name,
-                toolUseId: received.tool_use_id ?? '',
-                transcriptPath: received.transcript_path ?? '',
-              },
-            } satisfies QueuedRecord)
-        }
+        if (received) record(received, projectDir)
       } catch {
-        // 待ち行列にも置けなければ、差し戻しだけを返す
+        // 記録もできなければ、差し戻しだけを返す
       }
       blockPost(message)
     } else blockTool(`${message}。この操作は通せない。`)

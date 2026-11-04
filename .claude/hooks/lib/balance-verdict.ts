@@ -8,8 +8,7 @@
  * PASS の記録が無い判定は不合格として扱う。
  *
  * 編集の記録（BALANCE）: .md ごとの編集の履歴（呼び出しID・ツール名・その時の transcript）。
- * 合否は記録には書かず、毎回 transcript から読む（transcript は Edit / Write を deny で止め、
- * Bash での書き換えは record-guard で検知する）。
+ * 合否は記録には書かず、毎回 transcript から読む（transcript への Edit / Write は deny で止める）。
  * Bash での書き換えは判定されないので、Write し直して判定を受けるまで未判定になる。
  */
 

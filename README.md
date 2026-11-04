@@ -64,4 +64,4 @@ bun run .claude/hooks/read-gate.ts --list
 
 ## md-lint-gateについて
 
-`.claude/hooks/md-lint-gate.ts` は、編集した `.md` がtextlint・見出しlint・doc-balanceの判定を通るまで、そのファイルを直す以外の操作とコミットを拒否する。審査の記録がBashで書き換えられたことや、審査を通っていない中身がコミットされたことを検知すると、すべての操作を止める。止まったときは `.claude/tmp/md-lint-tamper.json` の内容を確かめてから手で消す。
+`.claude/hooks/md-lint-gate.ts` は、編集した `.md` がtextlint・見出しlint・doc-balanceの判定を通るまで、そのファイルを直す以外の操作とコミットを拒否する。審査を通っていない中身がコミットされたことを検知すると、すべての操作を止める。止まったときは `.claude/tmp/md-lint-tamper.json` の内容を確かめてから手で消す。

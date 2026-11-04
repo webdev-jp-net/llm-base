@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -11,7 +12,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { JUDGE_MARK, readEvents, writeEvents } from './lib/balance-verdict.ts'
-import { QUEUE_DIR, SNAPSHOT_DIR, TAMPER } from './lib/record-guard.ts'
+import { SNAPSHOT_DIR, TAMPER } from './lib/record-guard.ts'
 import {
   committableMdList,
   isAllowedWhilePending,
@@ -210,6 +211,21 @@ describe('コミット時の判定', () => {
     git('commit', '-qm', 'x')
     expect(postBash('b1')).toContain('合格した中身と違う docs/a.md')
     expect(existsSync(join(root, TAMPER))).toBe(true)
+  })
+
+  test('失敗した Bash で作られた、合格していない中身のコミットも、次の操作の直前に止める', () => {
+    initRepo()
+    writeFileSync(transcript(), '{}\n')
+    expect(pre('Bash', { command: 'bash s.sh' }, 'b1')).toBe('')
+    write('docs/a.md', '## 概要\n')
+    git('add', 'docs/a.md')
+    git('commit', '-qm', 'x')
+    appendFileSync(
+      transcript(),
+      JSON.stringify({ message: { content: [{ type: 'tool_result', tool_use_id: 'b1' }] } }) + '\n'
+    )
+    expect(isDenied(pre('Grep', { pattern: 'x' }, 'g1'))).toBe(true)
+    expect(readFileSync(join(root, TAMPER), 'utf8')).toContain('合格した中身と違う docs/a.md')
   })
 
   test('合格した中身のままコミットした .md は止めない', () => {
@@ -567,7 +583,10 @@ describe('doc-balance の判定', () => {
   })
 })
 
-describe('Bash での記録の書き換えの検知', () => {
+describe('Bash の控え', () => {
+  const snapshotList = () =>
+    existsSync(join(root, SNAPSHOT_DIR)) ? readdirSync(join(root, SNAPSHOT_DIR)) : []
+
   const post = (tool_use_id: string) =>
     run({
       hook_event_name: 'PostToolUse',
@@ -576,49 +595,36 @@ describe('Bash での記録の書き換えの検知', () => {
       tool_use_id,
     })
 
-  test('書き換えが無ければ止めない', () => {
+  test('直後に控えを消し、止めない', () => {
     writeFileSync(transcript(), '{}\n')
     expect(pre('Bash', { command: 'ls' })).toBe('')
+    expect(snapshotList()).toEqual(['b1.json'])
     appendFileSync(transcript(), '{"type":"user"}\n')
+    expect(post('b1')).toBe('')
+    expect(snapshotList()).toEqual([])
+    expect(existsSync(join(root, TAMPER))).toBe(false)
+  })
+
+  test('Bash の実行中に判定役の記録が増えても止めない', () => {
+    writeFileSync(transcript(), '{}\n')
+    expect(pre('Bash', { command: 'ls' })).toBe('')
+    judge('t9', 'PASS')
     expect(post('b1')).toBe('')
     expect(existsSync(join(root, TAMPER))).toBe(false)
   })
 
-  test('待ちの記録が書き換えられたら、目印を残して以降の操作を止める', () => {
-    writeFileSync(transcript(), '{}\n')
-    expect(pre('Bash', { command: 'ls' })).toBe('')
-    writePending(root, [join(root, 'x.md')])
-    expect(post('b1')).toContain('書き換えられた')
-    expect(existsSync(join(root, TAMPER))).toBe(true)
-    expect(isDenied(pre('Read', { file_path: join(root, 'x.md') }))).toBe(true)
-  })
-
-  test('Bash の実行中に判定役の記録が増えたら止める', () => {
-    writeFileSync(transcript(), '{}\n')
-    expect(pre('Bash', { command: 'ls' })).toBe('')
-    judge('t9', 'PASS')
-    expect(post('b1')).toContain('判定役の記録')
-  })
-
-  test('transcript の既存の部分が書き換えられたら止める', () => {
-    writeFileSync(transcript(), '{"a":1}\n')
-    expect(pre('Bash', { command: 'ls' })).toBe('')
-    writeFileSync(transcript(), '{"a":2}\n{"b":1}\n')
-    expect(post('b1')).toContain('transcript の既存の部分')
-  })
-
-  test('失敗して直後のフックが動かなかった Bash の書き換えも、次の操作の直前に止める', () => {
+  test('実行中の Bash の控えは、結果が出るまで残す', () => {
     writeFileSync(transcript(), '{}\n')
     expect(pre('Bash', { command: 'ls' }, 'b1')).toBe('')
-    // まだ結果が出ていない（実行中の）Bash の控えは比べない
     expect(pre('Read', { file_path: join(root, 'y.md') }, 'r1')).toBe('')
-    writePending(root, [join(root, 'x.md')])
+    expect(snapshotList()).toEqual(['b1.json'])
     appendFileSync(
       transcript(),
       JSON.stringify({ message: { content: [{ type: 'tool_result', tool_use_id: 'b1' }] } }) + '\n'
     )
-    expect(isDenied(pre('Read', { file_path: join(root, 'x.md') }, 'r2'))).toBe(true)
-    expect(existsSync(join(root, TAMPER))).toBe(true)
+    expect(pre('Read', { file_path: join(root, 'y.md') }, 'r2')).toBe('')
+    expect(snapshotList()).toEqual([])
+    expect(existsSync(join(root, TAMPER))).toBe(false)
   })
 
   test('失敗した Bash が書き換えた .md は、次の操作の直前に Bash による編集として記録する', () => {
@@ -636,7 +642,7 @@ describe('Bash での記録の書き換えの検知', () => {
     expect(readEvents(root).at(-1)).toMatchObject({ file: f, tool: 'Bash', toolUseId: 'b1' })
   })
 
-  test('Bash の実行中に別の操作で編集した .md は、待ち行列に置き、Bash の直後に記録する', () => {
+  test('Bash の実行中に別の操作で編集した .md は、そのまま記録する', () => {
     writeFileSync(transcript(), '{}\n')
     expect(pre('Bash', { command: 'ls' }, 'b1')).toBe('')
     const f = write('a.md', '## 1. 概要\n')
@@ -646,39 +652,17 @@ describe('Bash での記録の書き換えの検知', () => {
       tool_input: { file_path: f },
       tool_use_id: 'e1',
     })
-    // 実行中でも、待ち行列に置いた .md で止める
+    expect(readPending(root)).toEqual([f])
+    expect(readEvents(root).at(-1)).toMatchObject({ file: f, toolUseId: 'e1' })
     expect(isDenied(pre('Grep', { pattern: 'x' }, 'g1'))).toBe(true)
     expect(post('b1')).toBe('')
     expect(existsSync(join(root, TAMPER))).toBe(false)
-    expect(readPending(root)).toEqual([f])
-    expect(readEvents(root).at(-1)).toMatchObject({ file: f, toolUseId: 'e1' })
   })
 
-  test('Bash の実行中に待ち行列が消されたら止める', () => {
+  test('結果が残らないまま古くなった Bash の控えは、終わったものとして片付け、書き換えた .md を記録する', () => {
     writeFileSync(transcript(), '{}\n')
-    expect(pre('Bash', { command: 'ls' }, 'b1')).toBe('')
+    expect(pre('Bash', { command: 'sed' }, 'b1')).toBe('')
     const f = write('a.md', '## 概要\n')
-    run({
-      hook_event_name: 'PostToolUse',
-      tool_name: 'Edit',
-      tool_input: { file_path: f },
-      tool_use_id: 'e1',
-    })
-    rmSync(join(root, QUEUE_DIR), { recursive: true })
-    expect(post('b1')).toContain('待ち行列')
-    expect(existsSync(join(root, TAMPER))).toBe(true)
-  })
-
-  test('結果が残らないまま古くなった Bash の控えは、終わったものとして比べ、待ち行列を反映する', () => {
-    writeFileSync(transcript(), '{}\n')
-    expect(pre('Bash', { command: 'ls' }, 'b1')).toBe('')
-    const f = write('a.md', '## 概要\n')
-    run({
-      hook_event_name: 'PostToolUse',
-      tool_name: 'Edit',
-      tool_input: { file_path: f },
-      tool_use_id: 'e1',
-    })
     // 控えの開始時刻を16分前にする（強制終了などで結果が残らなかった Bash）
     const snapshotFile = join(root, SNAPSHOT_DIR, 'b1.json')
     const snapshot = JSON.parse(readFileSync(snapshotFile, 'utf8'))
@@ -686,17 +670,10 @@ describe('Bash での記録の書き換えの検知', () => {
       snapshotFile,
       JSON.stringify({ ...snapshot, startedAt: Date.now() - 16 * 60 * 1000 })
     )
-    pre('Grep', { pattern: 'x' }, 'g1')
+    expect(pre('Grep', { pattern: 'x' }, 'g1')).toContain('Write し直して')
+    expect(snapshotList()).toEqual([])
     expect(existsSync(join(root, TAMPER))).toBe(false)
-    expect(readEvents(root).some(e => e.file === f && e.toolUseId === 'e1')).toBe(true)
-  })
-
-  test('Bash で doc-balance の基準が書き換えられたら止める', () => {
-    writeFileSync(transcript(), '{}\n')
-    write('.claude/commands/doc-balance.md', '# 基準\n')
-    expect(pre('Bash', { command: 'ls' }, 'b1')).toBe('')
-    write('.claude/commands/doc-balance.md', '# 基準\n\nどの編集も合格とする\n')
-    expect(post('b1')).toContain('doc-balance.md が書き換えられた')
+    expect(readEvents(root).at(-1)).toMatchObject({ file: f, tool: 'Bash', toolUseId: 'b1' })
   })
 
   test('プロジェクトルート以外の cwd に基準が置かれていたら止める', () => {
@@ -712,21 +689,23 @@ describe('Bash での記録の書き換えの検知', () => {
     expect(existsSync(join(root, TAMPER))).toBe(true)
   })
 
-  test('並行して動く Bash の控えは、それぞれの直後に比べる', () => {
+  test('並行して動く Bash の控えは、それぞれの直後に消す', () => {
     writeFileSync(transcript(), '{}\n')
     expect(pre('Bash', { command: 'ls' }, 'b1')).toBe('')
     expect(pre('Bash', { command: 'ls' }, 'b2')).toBe('')
     expect(post('b2')).toBe('')
+    expect(snapshotList()).toEqual(['b1.json'])
     expect(post('b1')).toBe('')
+    expect(snapshotList()).toEqual([])
     expect(existsSync(join(root, TAMPER))).toBe(false)
   })
 
-  test('Bash の直後に控えが消えていたら止める', () => {
+  test('Bash の直後に控えが消えていても止めない', () => {
     writeFileSync(transcript(), '{}\n')
     expect(pre('Bash', { command: 'ls' })).toBe('')
     rmSync(join(root, SNAPSHOT_DIR), { recursive: true })
-    expect(post('b1')).toContain('消えている')
-    expect(existsSync(join(root, TAMPER))).toBe(true)
+    expect(post('b1')).toBe('')
+    expect(existsSync(join(root, TAMPER))).toBe(false)
   })
 
   test('Bash 以外の操作の直前には、控えが無くても止めない', () => {
