@@ -21,6 +21,17 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/md-lint-gate.ts\"",
+            "timeout": 30,
+            "statusMessage": "🚦 lint待ちの.mdを検査中..."
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -44,6 +55,12 @@
             "command": "bun run \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/md-heading-lint.ts\"",
             "timeout": 10,
             "statusMessage": "📐 見出しlint: 構造を検査中..."
+          },
+          {
+            "type": "command",
+            "command": "bun run \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/md-lint-gate.ts\"",
+            "timeout": 10,
+            "statusMessage": "🚦 編集した.mdをlint待ちに記録中..."
           }
         ]
       }
@@ -53,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -Rs '{hookSpecificOutput: {hookEventName: \"UserPromptSubmit\", additionalContext: .}}' \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/self-check-criteria.txt\"",
+            "command": "jq -Rs '{hookSpecificOutput: {hookEventName: \"UserPromptSubmit\", additionalContext: .}}' \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/self-check-criteria.md\"",
             "timeout": 10
           }
         ]
@@ -62,7 +79,16 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -Rs '{hookSpecificOutput: {hookEventName: \"UserPromptSubmit\", additionalContext: .}}' \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/no-discretion.txt\"",
+            "command": "jq -Rs '{hookSpecificOutput: {hookEventName: \"UserPromptSubmit\", additionalContext: .}}' \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/no-discretion.md\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/self-check-context.ts\"",
             "timeout": 10
           }
         ]
