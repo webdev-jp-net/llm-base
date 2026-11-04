@@ -38,6 +38,11 @@ export interface EditEvent {
    * 合格はこの中身に対してだけ有効で、中身が変われば（記録の残らない経路の書き換えも含め）未判定に戻る
    */
   passedHash?: string
+  /**
+   * 合格した中身がコミット済みになった記録。判定には使わず、コミットの検査にだけ使う
+   * （失敗した Bash の控えを片付けるときの検査で、合格した中身のコミットを見分けるため）
+   */
+  committed?: boolean
 }
 
 export interface Verdict {

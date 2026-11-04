@@ -235,7 +235,6 @@ function checkNewCommits(projectDir: string, toolUseId: string): string[] {
   if (!now || now === head) return []
 
   const eventList = readEvents(projectDir)
-  const verdicts = readVerdicts(eventList)
   const problemList: string[] = []
   const logLines = (
     gitOutput(projectDir, ['log', '--format=%H %ct %P', head ? `${head}..${now}` : now]) ?? ''
@@ -263,10 +262,9 @@ function checkNewCommits(projectDir: string, toolUseId: string): string[] {
       const blobHash = createHash('sha256')
         .update(blob.stdout ?? '')
         .digest('hex')
+      // コミットされた中身が、合格を確かめた時の中身（passedHash）のどれかと同じならよい
       const file = resolve(projectDir, rel)
-      const status = balanceStatus(eventList, verdicts, file)
-      const last = eventList.findLast(e => e.file === file)
-      if (status.kind !== 'pass' || last?.passedHash !== blobHash)
+      if (!eventList.some(e => e.file === file && e.passedHash === blobHash))
         problemList.push(
           `doc-balance に合格した中身と違う ${rel} がコミットされた（${sha.slice(0, 7)}）`
         )
@@ -360,7 +358,13 @@ function balanceProblems(
   // 追跡済みで HEAD と同じ中身のファイルは、すでにコミットされた内容なので記録から外す
   // （コミット済みの合格、git pull・checkout で入れ替わったファイル）
   const committed = unchangedFromHead(projectDir, [...new Set(recordedList.map(e => e.file))])
-  const eventList = recordedList.filter(e => !committed.has(e.file))
+  const eventList = recordedList.filter(e => !committed.has(e.file) && !e.committed)
+  // コミット済みの中身に対する合格の記録は、判定には使わず、コミットの検査（checkNewCommits）に
+  // だけ使えるよう印を付けて残す。別の中身でコミット済みになったら（checkout など）捨てる
+  const keptList = recordedList
+    .filter(e => (committed.has(e.file) || e.committed) && e.passedHash !== undefined)
+    .filter(e => !committed.has(e.file) || e.passedHash === fileHash(e.file))
+    .map(e => ({ ...e, committed: true }))
   const verdicts = readVerdicts(eventList)
   const fileList = [...new Set([...eventList.map(e => e.file), ...extraList])]
   const failingList: string[] = []
@@ -399,7 +403,7 @@ function balanceProblems(
   }
   writeEvents(
     projectDir,
-    pruneEvents(eventList, passedList).filter(e => existsSync(e.file))
+    [...pruneEvents(eventList, passedList), ...keptList].filter(e => existsSync(e.file))
   )
   return { failingList, problemList, stopAll }
 }

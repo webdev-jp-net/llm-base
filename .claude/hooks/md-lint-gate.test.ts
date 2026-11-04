@@ -228,6 +228,45 @@ describe('コミット時の判定', () => {
     expect(readFileSync(join(root, TAMPER), 'utf8')).toContain('合格した中身と違う docs/a.md')
   })
 
+  test('失敗した Bash より後に、別の Bash で検査を通したコミットは、片付けのときに止めない', () => {
+    initRepo()
+    writeFileSync(transcript(), '{}\n')
+    // 結果が残らなかった Bash の控え
+    expect(pre('Bash', { command: 'bash s.sh' }, 'b0')).toBe('')
+    const f = write('docs/a.md', '## 概要\n')
+    writePassed(f, 't1')
+    expect(pre('Bash', { command: 'git commit' }, 'b1')).toBe('')
+    git('add', 'docs/a.md')
+    git('commit', '-qm', 'x')
+    expect(postBash('b1')).toBe('')
+    // コミット済みの合格の記録は、中身のハッシュつきで残る
+    expect(pre('Grep', { pattern: 'x' }, 'g1')).toBe('')
+    expect(readEvents(root)).toEqual([expect.objectContaining({ file: f, toolUseId: 't1' })])
+    expect(readEvents(root)[0].passedHash).toBeDefined()
+    appendFileSync(
+      transcript(),
+      JSON.stringify({ message: { content: [{ type: 'tool_result', tool_use_id: 'b0' }] } }) + '\n'
+    )
+    expect(pre('Grep', { pattern: 'x' }, 'g2')).toBe('')
+    expect(existsSync(join(root, TAMPER))).toBe(false)
+  })
+
+  test('コミット済みの .md を記録の残らない経路で書き換えても、次の操作は止めず、コミットは止める', () => {
+    initRepo()
+    writeFileSync(transcript(), '{}\n')
+    const f = write('docs/a.md', '## 概要\n')
+    writePassed(f, 't1')
+    expect(pre('Bash', { command: 'git commit' }, 'b1')).toBe('')
+    git('add', 'docs/a.md')
+    git('commit', '-qm', 'x')
+    expect(postBash('b1')).toBe('')
+    expect(pre('Grep', { pattern: 'x' }, 'g1')).toBe('')
+    // 記録の残らない経路（エディタなど）での書き換え
+    write('docs/a.md', '## 概要\n\n記録されない追記\n')
+    expect(pre('Grep', { pattern: 'x' }, 'g2')).toBe('')
+    expect(isDenied(pre('Bash', { command: 'git commit -am y' }, 'b2'))).toBe(true)
+  })
+
   test('合格した中身のままコミットした .md は止めない', () => {
     initRepo()
     writeFileSync(transcript(), '{}\n')
