@@ -13,6 +13,10 @@ export interface HookInput {
   cwd: string
   session_id: string
   hook_event_name: 'PreToolUse' | 'PostToolUse'
+  tool_use_id?: string
+  transcript_path?: string
+  /** サブエージェント・agent 型フックの呼び出しに付く。agent 型フックは `hook-agent-` で始まる */
+  agent_id?: string
 }
 
 /** Bash ツール用の tool_input 型付き HookInput */

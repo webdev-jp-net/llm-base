@@ -77,4 +77,13 @@ describe('targetFiles', () => {
     const f = write('a.md', 0)
     expect(targetFiles(input('Read', f), root, MD)).toEqual([])
   })
+
+  test('.gitignore に書いた .md は対象にしない', () => {
+    Bun.spawnSync(['git', 'init', '-q'], { cwd: root })
+    writeFileSync(join(root, '.gitignore'), 'ignored/\n')
+    const ignored = write('ignored/a.md', 0)
+    const kept = write('kept/a.md', 0)
+    expect(targetFiles(input('Edit', ignored), root, MD)).toEqual([])
+    expect(targetFiles(input('Edit', kept), root, MD)).toEqual([kept])
+  })
 })
