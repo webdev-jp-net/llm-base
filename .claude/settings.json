@@ -83,6 +83,15 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/self-check-context.ts\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "SessionStart": [

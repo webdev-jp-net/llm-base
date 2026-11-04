@@ -32,6 +32,14 @@ export interface UserPromptSubmitInput {
   hook_event_name: 'UserPromptSubmit'
 }
 
+/** Stop フック入力 */
+export interface StopInput {
+  last_assistant_message?: string
+  cwd: string
+  session_id: string
+  hook_event_name: 'Stop'
+}
+
 /** MCP レスポンスの content 配列要素 */
 export interface McpContentItem {
   type: string
