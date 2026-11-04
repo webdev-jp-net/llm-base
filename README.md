@@ -61,3 +61,7 @@ pnpm run format
 ```bash
 bun run .claude/hooks/read-gate.ts --list
 ```
+
+## md-lint-gateについて
+
+`.claude/hooks/md-lint-gate.ts` は、編集した `.md` がtextlintと見出しlintを通るまで、そのファイルを直す操作以外を拒否する。コミットの前には、コミットに入りうる `.md` もすべて検査する。
