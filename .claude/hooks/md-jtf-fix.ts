@@ -6,7 +6,6 @@
  * 境目のスペースを除去する。ルール定義は .textlintrc.json、除外は .textlintignore。
  *
  * 対象: .md, .mdx のみ。逐語データ（*.json / *.jsonl）は .textlintignore で保護。
- * 無効化: MD_JTF_FIX_DISABLED=true
  */
 
 import { spawnSync } from 'node:child_process'
@@ -22,8 +21,6 @@ const TARGET_EXTENSIONS = new Set(['.md', '.mdx'])
 
 if (import.meta.main) {
   runHook('md-jtf-fix', async () => {
-    if (process.env.MD_JTF_FIX_DISABLED === 'true') process.exit(0)
-
     const input = await readStdinJson<HookInput>()
     const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd()
     const bin = join(projectDir, 'node_modules', '.bin', 'textlint')

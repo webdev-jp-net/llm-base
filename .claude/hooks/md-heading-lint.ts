@@ -12,7 +12,6 @@
  *   3. 行頭の丸ごと太字（擬似見出し）     例: `**重要な点**` 単独行 — h2/h3 にすべき
  *
  * 対象: .md, .mdx のみ。コードブロック内はスキップ。
- * 無効化: MD_HEADING_LINT_DISABLED=true
  */
 
 import { readFileSync } from 'node:fs'
@@ -98,8 +97,6 @@ export function formatReport(fileName: string, findingList: Finding[]): string {
 // --- CLI エントリーポイント ---
 if (import.meta.main) {
   runHook('md-heading-lint', async () => {
-    if (process.env.MD_HEADING_LINT_DISABLED === 'true') process.exit(0)
-
     const input = await readStdinJson<HookInput>()
     const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd()
 

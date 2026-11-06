@@ -10,7 +10,7 @@ Claude Codeのエージェント運用ルールと制御機構の基盤。技術
 | `_llm-rules/`       | 運用ルール（コアルール・GitHub連携・実装原則・自己改善）                                     |
 | `_llm-docs/`        | プロジェクトの仕様書。`project.md` と `operation/dictionary.md` はセッション開始時の必読対象 |
 | `_llm-memories/`    | 実行記録。実体は追跡せず、`templates/` だけをバージョン管理する                              |
-| `.claude/hooks/`    | 必読ファイルの読了判定（read-gate）とMarkdownの整形・見出し検査・doc-balanceの判定           |
+| `.claude/hooks/`    | 必読ファイルの読了判定（read-gate）とMarkdownの整形・見出し検査                              |
 | `.claude/skills/`   | Issue起票・レビュー・リリース・ブランチ後始末などの手順書                                    |
 | `.claude/commands/` | スラッシュコマンド                                                                           |
 
@@ -61,7 +61,3 @@ pnpm run format
 ```bash
 bun run .claude/hooks/read-gate.ts --list
 ```
-
-## md-lint-gateについて
-
-`.claude/hooks/md-lint-gate.ts` は、編集した `.md` がtextlint・見出しlint・doc-balanceの判定を通るまで、そのファイルを直す以外の操作とコミットを拒否する。審査を通っていない中身がコミットされたことを検知すると、すべての操作を止める。止まったときは `.claude/tmp/md-lint-tamper.json` の内容を確かめてから手で消す。

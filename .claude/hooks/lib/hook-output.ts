@@ -30,23 +30,18 @@ interface UserPromptContext {
 
 type HookOutput = PreToolUseBlock | PreToolUseAllow | PostToolUseContext | UserPromptContext
 
-/** stdout に hookSpecificOutput JSON を書き出す。systemMessage はユーザーに表示される */
-export function emitOutput(output: HookOutput, systemMessage?: string): void {
-  process.stdout.write(
-    JSON.stringify({ hookSpecificOutput: output, ...(systemMessage && { systemMessage }) })
-  )
+/** stdout に hookSpecificOutput JSON を書き出す */
+export function emitOutput(output: HookOutput): void {
+  process.stdout.write(JSON.stringify({ hookSpecificOutput: output }))
 }
 
-/** PreToolUse: コマンド/操作をブロック。systemMessage を渡すとユーザーにも表示する */
-export function blockTool(reason: string, systemMessage?: string): void {
-  emitOutput(
-    {
-      hookEventName: 'PreToolUse',
-      permissionDecision: 'deny',
-      permissionDecisionReason: reason,
-    },
-    systemMessage
-  )
+/** PreToolUse: コマンド/操作をブロック */
+export function blockTool(reason: string): void {
+  emitOutput({
+    hookEventName: 'PreToolUse',
+    permissionDecision: 'deny',
+    permissionDecisionReason: reason,
+  })
 }
 
 /** PreToolUse: 許可しつつ情報を通知 */
@@ -68,10 +63,8 @@ export function postContext(context: string): void {
 }
 
 /** PostToolUse: 差し戻す（ツールは実行済み。reason に応えるまで先へ進ませない） */
-export function blockPost(reason: string, systemMessage?: string): void {
-  process.stdout.write(
-    JSON.stringify({ decision: 'block', reason, ...(systemMessage && { systemMessage }) })
-  )
+export function blockPost(reason: string): void {
+  process.stdout.write(JSON.stringify({ decision: 'block', reason }))
 }
 
 /** UserPromptSubmit: 追加コンテキストを注入 */

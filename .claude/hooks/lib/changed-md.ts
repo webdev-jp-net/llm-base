@@ -9,7 +9,7 @@
 
 import { spawnSync } from 'node:child_process'
 import { existsSync, lstatSync, readdirSync } from 'node:fs'
-import { dirname, extname, join, resolve } from 'node:path'
+import { dirname, extname, join } from 'node:path'
 import type { HookInput } from './hook-types.ts'
 
 /** Bash 実行前に touch する目印（プロジェクトルート相対） */
@@ -22,15 +22,7 @@ const SKIP_DIRS = new Set(['node_modules', '.git'])
 export function changedFilesSince(projectDir: string, extensions: Set<string>): string[] {
   const mark = join(projectDir, BASH_MARK)
   if (!existsSync(mark)) return []
-  return filesModifiedSince(projectDir, extensions, lstatSync(mark).mtimeMs)
-}
-
-/** 指定した時刻（ミリ秒）以降に更新された、対象拡張子のファイル */
-export function filesModifiedSince(
-  projectDir: string,
-  extensions: Set<string>,
-  since: number
-): string[] {
+  const since = lstatSync(mark).mtimeMs
   const found: string[] = []
   const walk = (dir: string) => {
     for (const name of readdirSync(dir).sort()) {
@@ -65,33 +57,6 @@ export function withoutIgnored(projectDir: string, fileList: string[]): string[]
     // 0: 無視される / 1: 無視されない / それ以外: 判定できない（除かない）
     return result.status !== 0
   })
-}
-
-/**
- * 追跡済みで、中身が HEAD と同じファイル（すでにコミットされた内容）。
- * git が使えなければ空を返す（何も外さない）
- */
-export function unchangedFromHead(projectDir: string, fileList: string[]): Set<string> {
-  const git = (args: string[]) => {
-    const result = spawnSync('git', args, { cwd: projectDir, encoding: 'utf8' })
-    return result.status === 0 ? result.stdout.split('\n').filter(Boolean) : null
-  }
-  if (fileList.length === 0) return new Set()
-  // どちらも projectDir からの相対パスで返させ、projectDir と結合して比べる
-  const tracked = git(['-c', 'core.quotepath=off', 'ls-files', '--', ...fileList])
-  const changed = git([
-    '-c',
-    'core.quotepath=off',
-    'diff',
-    '--name-only',
-    '--relative',
-    'HEAD',
-    '--',
-    ...fileList,
-  ])
-  if (!tracked || !changed) return new Set()
-  const changedSet = new Set(changed)
-  return new Set(tracked.filter(rel => !changedSet.has(rel)).map(rel => resolve(projectDir, rel)))
 }
 
 /** フック入力から処理対象のファイル一覧を決める */
