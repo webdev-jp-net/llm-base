@@ -6,7 +6,6 @@
  * その全文を reason として返し、差し戻す。
  *
  * 対象: .md, .mdx のみ。
- * 無効化: MD_DOC_BALANCE_DISABLED=true
  */
 
 import { existsSync, readFileSync } from 'node:fs'
@@ -21,8 +20,6 @@ const TARGET_EXTENSION_LIST = new Set(['.md', '.mdx'])
 
 if (import.meta.main) {
   runHook('md-doc-balance', async () => {
-    if (process.env.MD_DOC_BALANCE_DISABLED === 'true') process.exit(0)
-
     const input = await readStdinJson<HookInput>()
     const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd()
     const criteria = join(projectDir, '.claude', 'commands', 'doc-balance.md')

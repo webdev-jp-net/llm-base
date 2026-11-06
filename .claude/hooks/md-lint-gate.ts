@@ -12,7 +12,6 @@
  * 検査するため。
  *
  * 対象: .md, .mdx のみ。
- * 無効化: MD_LINT_GATE_DISABLED=true
  */
 
 import { spawnSync } from 'node:child_process'
@@ -164,7 +163,6 @@ function gate(input: HookInput, projectDir: string): void {
 if (import.meta.main) {
   let event = ''
   const main = async () => {
-    if (process.env.MD_LINT_GATE_DISABLED === 'true') process.exit(0)
     const input = await readStdinJson<HookInput>()
     event = input.hook_event_name
     const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd()
