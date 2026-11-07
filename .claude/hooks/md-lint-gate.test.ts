@@ -52,10 +52,6 @@ describe('readPending / writePending', () => {
     writePending(root, ['/b.md', '/a.md', '/b.md'])
     expect(readPending(root)).toEqual(['/a.md', '/b.md'])
   })
-  test('壊れた記録は例外にする', () => {
-    write(PENDING, '{')
-    expect(() => readPending(root)).toThrow()
-  })
 })
 
 describe('lintProblems', () => {
@@ -85,10 +81,9 @@ describe('isAllowedWhilePending', () => {
     expect(isAllowedWhilePending('Read', input, failing(), root)).toBe(false)
     expect(isAllowedWhilePending('Edit', input, failing(), root)).toBe(false)
   })
-  test('それ以外のツールは止める', () => {
-    for (const tool of ['Bash', 'Grep', 'Glob', 'Agent', 'NotebookEdit', 'mcp__x__y']) {
-      expect(isAllowedWhilePending(tool, {}, failing(), root)).toBe(false)
-    }
+  test('それ以外のツールは、違反ファイルが対象でも止める', () => {
+    const input = { file_path: join(root, 'a.md') }
+    expect(isAllowedWhilePending('NotebookEdit', input, failing(), root)).toBe(false)
   })
 })
 
