@@ -86,4 +86,13 @@ describe('targetFiles', () => {
     expect(targetFiles(input('Edit', ignored), root, MD)).toEqual([])
     expect(targetFiles(input('Edit', kept), root, MD)).toEqual([kept])
   })
+
+  test('Bash でも .gitignore に書いた .md は対象にしない', () => {
+    Bun.spawnSync(['git', 'init', '-q'], { cwd: root })
+    writeFileSync(join(root, '.gitignore'), 'ignored/\n')
+    write(BASH_MARK, 0)
+    write('ignored/a.md', 10)
+    const kept = write('kept/a.md', 10)
+    expect(targetFiles(input('Bash'), root, MD)).toEqual([kept])
+  })
 })
