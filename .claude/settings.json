@@ -8,6 +8,7 @@
             "type": "command",
             "command": "bun run \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/read-gate.ts\"",
             "timeout": 20,
+            "onFailure": "block",
             "statusMessage": "🚧 必読ファイルの読了を確認中..."
           }
         ]
@@ -29,6 +30,7 @@
             "type": "command",
             "command": "bun run \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/md-lint-gate.ts\"",
             "timeout": 30,
+            "onFailure": "block",
             "statusMessage": "🚦 lint待ちの.mdを検査中..."
           }
         ]

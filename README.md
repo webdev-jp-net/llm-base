@@ -18,7 +18,7 @@ Claude Codeのエージェント運用ルールと制御機構の基盤。技術
 
 必須のもの。
 
-- **Claude Code** — このリポジトリ全体がその設定
+- **Claude Code** — このリポジトリ全体がその設定。hookが起動できないときに操作を止める指定（`onFailure`）は、v2.1.295以降で効く
 - **Git**
 - **bun** — hookの実行に使う
 - **jq** — `.claude/settings.json` 内のhookが使う
